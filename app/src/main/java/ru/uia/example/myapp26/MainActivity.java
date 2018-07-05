@@ -32,6 +32,7 @@ public class MainActivity extends AppCompatActivity {
 
     private DownloadManager downloadManager;
     private long refid = 0;
+    private String fileName = "";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -48,66 +49,78 @@ public class MainActivity extends AppCompatActivity {
         mDownloadButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
+                mImageView.setImageDrawable(null);
                 if(isStoragePermissionGranted()) {
+                    String filePath = mPathEditText.getText().toString();
+                    fileName = filePath.substring( filePath.lastIndexOf('/')+1, filePath.length() );
+                    if (validateUri(filePath)) {
+                        try {
 
-                String uriString = mPathEditText.getText().toString();
-                if(TextUtils.isEmpty(uriString)) {
-                    showErrorToast("Введен пустой url!");
-                    return;
-                } else {
-                    String fileExt = "";
-                    int dotPosition = uriString.lastIndexOf(".");
-                    if(dotPosition > 0)
-                        fileExt = uriString.substring(dotPosition + 1);
-                    if(!fileExt.equals("png") && !fileExt.equals("bmp") && !fileExt.equals("jpg")) {
-                        showErrorToast("Необходимо ввести корректное расширение: png, bmp, jpg!");
-                        return;
-                    }
-                    if(!URLUtil.isValidUrl(uriString)) {
-                        showErrorToast("Необходимо ввести корректный url!");
-                        return;
+                            Uri uri = Uri.parse(filePath);
+                            DownloadManager.Request request = new DownloadManager.Request(uri);
+                            request.setAllowedNetworkTypes(DownloadManager.Request.NETWORK_WIFI | DownloadManager.Request.NETWORK_MOBILE);
+                            request.setAllowedOverRoaming(false);
+                            request.setTitle("Downloading " + fileName);
+                            request.setDescription("Downloading " + fileName);
+                            request.setVisibleInDownloadsUi(true);
+                            request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, "/" + fileName);
+                            refid = downloadManager.enqueue(request);
+                            if (refid > 0) {
+                                //File imgFile = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).getAbsolutePath() + "/" + fileName);
+                               // if(imgFile.exists())
+                                    mShowButton.setEnabled(true);
+                                //else
+                                 //   showErrorToast("Не удалось загрузить файл!");
+                            } else
+                                showToast("Не удалось загрузить файл!");
+                        } catch (Exception ex) {
+                            showToast("Что-то пошло не так: " + ex.getMessage());
+                        }
+
                     }
                 }
-
-                try {
-                    Uri downloadUri = Uri.parse(uriString);
-                    DownloadManager.Request request = new DownloadManager.Request(downloadUri);
-                    request.setAllowedNetworkTypes(DownloadManager.Request.NETWORK_WIFI | DownloadManager.Request.NETWORK_MOBILE);
-                    request.setAllowedOverRoaming(false);
-                    request.setTitle("GadgetSaint Downloading " + "Sample" + ".png");
-                    request.setDescription("Downloading " + "Sample" + ".png");
-                    request.setVisibleInDownloadsUi(true);
-                    request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, "/MyApp26/" + "/" + "myFile" + ".png");
-
-
-                    refid = downloadManager.enqueue(request);
-                    if (refid > 0) {
-                        mShowButton.setEnabled(true);
-                    }
-                    else
-                        showErrorToast("Не удалось загрузить файл!");
-                } catch (Exception ex) {
-                    showErrorToast("Что-то пошло не так: " + ex.getMessage());
-                }
-
-            }
             }
         });
 
         mShowButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                if(refid > 0) {
-                    File imgFile = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).getAbsolutePath() + "/MyApp26/"  + "/" + "myFile" + ".png");
+                if(refid > 0 && !fileName.isEmpty()) {
+                    File imgFile = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).getAbsolutePath() + "/" + fileName);
                     if(imgFile.exists()){
                         Bitmap myBitmap = BitmapFactory.decodeFile(imgFile.getAbsolutePath());
                         mImageView.setImageBitmap(myBitmap);
-                        //mShowButton.setEnabled(false);
-                        //imgFile.delete();
-                    } else showErrorToast("Не удалось загрузить файл!");
+                        imgFile.delete();
+                    } else showToast("Не удалось загрузить файл!");
+                    mShowButton.setEnabled(false);
                 }
             }
         });
+    }
+
+    private boolean validateUri(String filePath) {
+        if(TextUtils.isEmpty(filePath)) {
+            showToast("Введен пустой url!");
+            return false;
+        } else {
+            String fileExt = "";
+            int dotPosition = filePath.lastIndexOf(".");
+            if(dotPosition > 0)
+                fileExt = filePath.substring(dotPosition + 1);
+            if(!fileExt.equals("png") && !fileExt.equals("bmp") && !fileExt.equals("jpg")) {
+                showToast("Необходимо ввести корректное расширение: png, bmp, jpg!");
+                return false;
+            }
+            if(!URLUtil.isValidUrl(filePath)) {
+                showToast("Необходимо ввести корректный url!");
+                return false;
+            }
+            if(filePath.substring( filePath.lastIndexOf('/')+1, filePath.length()).isEmpty()) {
+                showToast("Необходимо ввести корректный url!");
+                return false;
+            }
+        }
+        return true;
     }
 
     public  boolean isStoragePermissionGranted() {
@@ -126,7 +139,7 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private void showErrorToast(String text) {
+    private void showToast(String text) {
         Toast.makeText(MainActivity.this, text, Toast.LENGTH_LONG).show();
     }
 }
